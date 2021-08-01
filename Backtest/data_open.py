@@ -1,9 +1,9 @@
 import csv
 
 
-def dataOpen():
+def dataOpen(filename):
     f = open(
-        "python-stockMarket/Backtest/data.csv",
+        "python-stockMarket/Backtest/" + filename,
         "r",
         encoding="utf-8",
     )

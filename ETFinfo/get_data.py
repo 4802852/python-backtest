@@ -25,5 +25,5 @@ def crawling(list):
         print(first_table)
 
 
-list = data_open("list.csv")
+list = data_open("data.csv")
 crawling(list)
