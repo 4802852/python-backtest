@@ -1,7 +1,12 @@
 import csv
 
+
 def dataOpen():
-    f = open('data.csv', 'r', encoding='utf-8',)
+    f = open(
+        "python-stockMarket/Backtest/data.csv",
+        "r",
+        encoding="utf-8",
+    )
     rdr = csv.reader(f)
     etf_names = []
     etf_codes = []
@@ -24,5 +29,6 @@ def dataOpen():
             new_etf_rates.append(etf_rates[i] / mod)
             mod -= etf_rates[i]
         return True, etf_names, etf_codes, new_etf_rates, etf_colors
+
 
 # dataOpen()
