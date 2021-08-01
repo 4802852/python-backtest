@@ -75,12 +75,12 @@ def backtest(money: int, fee_rate: float, interval: int, etf_names :arrays, etf_
 
     for i in range(1, len(etf_codes) + 1):
         plt.plot(final_df[f'etf{i}'].index, final_df[f'etf{i}'], label=etf_names[i - 1], color=etf_colors[i - 1])
-    plt.plot(final_df['backtest'].index, final_df['backtest'], label='backtest', color='violet')
+    plt.plot(final_df['backtest'].index, final_df['backtest'], label='BACKTEST', color='violet')
     plt.legend(loc='upper left')
     plt.show()
 
 
-start_date = '2019-01-01'
+start_date = '2019-07-01'
 interval = 3
 th, etf_names, etf_codes, etf_rates, etf_colors = dataOpen()
 if th:
