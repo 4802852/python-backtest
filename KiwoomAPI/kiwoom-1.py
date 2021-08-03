@@ -11,10 +11,10 @@ from config.errCode import *
 class MyWindow(QMainWindow):
     def __init__(self):
         super().__init__()
-        self.setGeometry(300, 300, 400, 300)
+        self.setGeometry(300, 300, 500, 300)
         self.setWindowTitle("변동성 돌파전략")
         self.symbol_list = ["229200"]
-        self.symbol_dict = {}  # [name, range, target, hold, previous_day_quantity]
+        self.symbol_dict = {}  # [name, range, target, hold, quantity]
         self.bought_list = []
         target_buy_count = len(self.symbol_list) if len(self.symbol_list) < 5 else 5
         self.buy_percent = 1 / target_buy_count
@@ -24,7 +24,6 @@ class MyWindow(QMainWindow):
 
         self.amount = None
         self.account = None
-        self.hold = None
         self.on_market = None
 
         t_now = datetime.datetime.now()
@@ -34,7 +33,7 @@ class MyWindow(QMainWindow):
         self.plain_text_edit = QPlainTextEdit(self)
         self.plain_text_edit.setReadOnly(True)
         self.plain_text_edit.move(10, 10)
-        self.plain_text_edit.resize(380, 280)
+        self.plain_text_edit.resize(480, 280)
 
         self.ocx = QAxWidget("KHOPENAPI.KHOpenAPICtrl.1")
         self.ocx.OnEventConnect.connect(self._handler_login)
@@ -52,7 +51,7 @@ class MyWindow(QMainWindow):
 
     def run(self, symbol_list):
         accounts = self.GetLoginInfo("ACCNO")
-        self.account = accounts.split(";")[0]
+        self.account = accounts.split(";")[1]
         self.plain_text_edit.appendPlainText(f"현재 계좌번호: {self.account}")
 
         self.subscribe_market_time("1")
@@ -60,23 +59,6 @@ class MyWindow(QMainWindow):
         for symbol in symbol_list:
             self.request_opt10081(symbol)  # 종목 별 전일 정보 조회
         self.request_opw00004()  # 계좌 평가 현황 조회
-
-        start = 1
-        while start:
-            t_now = datetime.datetime.now()
-            if self.on_market == "0":
-                self.plain_text_edit.appendPlainText("장 시작 전입니다.")
-            elif self.on_market == ("2" or "4"):
-                QCoreApplication.instance().quit()
-                print("장 종료되었습니다.")
-            elif self.on_market == "3":
-                if t_now < self.t_start:
-                    if self.bought_list:
-                        self.sell_all(self.bought_list)
-                elif self.t_start < t_now < self.t_sell:
-                    start = 0
-            time.sleep(10)
-
         self.request_opw00001()  # 예수금 조회
 
         # 주식체결 (실시간)
@@ -104,7 +86,7 @@ class MyWindow(QMainWindow):
             주문가능금액 = self.GetCommData(trcode, rqname, 0, "주문가능금액")
             주문가능금액 = int(주문가능금액)
             self.amount = int(주문가능금액 * self.buy_percent)
-            self.plain_text_edit.appendPlainText(f"주문가능금액: {주문가능금액} 투자금액: {self.amount}")
+            self.plain_text_edit.appendPlainText(f"주문가능금액: {주문가능금액} 1종목당 투자금액: {self.amount}")
 
         elif rqname == "계좌평가현황":
             rows = self.GetRepeatCnt(trcode, rqname)
@@ -130,12 +112,18 @@ class MyWindow(QMainWindow):
 
             prev_day_range = int(고가) - int(저가)
             self.symbol_dict[rqname][1] = prev_day_range
-            info = f"{rqname} / 일자: {일자} 고가: {고가} 저가: {저가} 전일변동: {prev_day_range}"
+            info = (
+                f"{self.symbol_dict[rqname][0]} / 일자: {일자} 고가: {고가} 저가: {저가} 전일변동: {prev_day_range}"
+            )
             self.plain_text_edit.appendPlainText(info)
 
     def GetRepeatCnt(self, trcode, rqname):
         ret = self.ocx.dynamicCall("GetRepeatCnt(QString, QString)", trcode, rqname)
         return ret
+
+    def GetMasterCodeName(self, code):
+        name = self.ocx.dynamicCall("GetMasterCodeName(QString)", code)
+        return name
 
     def request_opt10081(self, target_code):
         now = datetime.datetime.now()
@@ -180,22 +168,25 @@ class MyWindow(QMainWindow):
     def _handler_real_data(self, code, real_type, real_data):
         if real_type == "장시작시간":
             장운영구분 = self.GetCommRealData(code, 215)
-            if 장운영구분 == "3":
-                self.on_market = 장운영구분
-            elif 장운영구분 == ("2" or "4"):
-                self.on_market = 장운영구분
-                QCoreApplication.instance().quit()
+            if 장운영구분 == ("2" or "4"):
                 print("메인 윈도우 종료")
+                QCoreApplication.instance().quit()
+            self.on_market = 장운영구분
 
         elif real_type == "주식체결":
             t_now = datetime.datetime.now()
-
             if self.t_sell < t_now:
                 if self.bought_list:
                     self.sell_all(self.bought_list)
-                time.sleep(10)
+                    self.plain_text_edit.appendPlainText("전량 매도 중입니다.")
+                self.plain_text_edit.appendPlainText("5분 후 프로그램 종료됩니다.")
+                time.sleep(300)
                 QCoreApplication.instance().quit()
                 print("메인 윈도우 종료")
+            elif self.t_start < t_now:
+                if self.bought_list:
+                    self.sell_all(self.bought_list)
+                time.sleep(60)
             else:
                 # 현재가
                 현재가 = self.GetCommRealData(code, 10)
@@ -204,7 +195,7 @@ class MyWindow(QMainWindow):
 
                 # 목표가 계산
                 # TR 요청을 통한 전일 range가 계산되었고 아직 당일 목표가가 계산되지 않았다면
-                if self.symbol_dict[code][1] and self.symbol_dict[code][2] == 0:
+                if self.symbol_dict[code][1] != 0 and self.symbol_dict[code][2] == 0:
                     시가 = self.GetCommRealData(code, 16)
                     시가 = abs(int(시가))  # +100, -100
                     code_target = int(시가 + (self.range * 0.4))
@@ -225,6 +216,7 @@ class MyWindow(QMainWindow):
                     self.symbol_dict[code][3] = True
                     quantity = int(self.amount / 현재가)
                     self.SendOrder("매수", "8000", self.account, 1, code, quantity, 0, "03", "")
+                    self.symbol_dict[code][4] = quantity
                     self.plain_text_edit.appendPlainText(
                         f"{self.symbol_dict[code][0]} 시장가 매수 진행 수량: {quantity}"
                     )
@@ -239,7 +231,7 @@ class MyWindow(QMainWindow):
         if "gubun" == "1":  # 잔고통보
             예수금 = self.GetChejanData("951")
             self.amount = int(예수금)
-            self.plain_text_edit.appendPlainText(f"투자금액 업데이트 됨: {self.amount}")
+            self.plain_text_edit.appendPlainText(f"주문가능금액 업데이트 됨: {self.amount}")
 
     def sell_all(self, bought_list):
         for symbol in bought_list:
@@ -254,6 +246,7 @@ class MyWindow(QMainWindow):
                 "03",
                 "",
             )
+        self.request_opw00001()
         self.bought_list = []
 
     def subscribe_stock_conclusion(self, screen_no, symbol):

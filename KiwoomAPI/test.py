@@ -1,3 +1,5 @@
+import datetime
+
 # symbol = ["123", "234", "345", "456"]
 # dict = {}
 # for i in range(len(symbol)):
@@ -12,3 +14,5 @@
 a = 1
 b = a == (3 or 2)
 print(b)
+
+print(datetime.datetime.now())
