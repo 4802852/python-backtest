@@ -36,8 +36,9 @@ elif state == 1:
 # print(len(kosdaq), kosdaq)
 # print(len(etf), etf)
 
-# name = kiwoom.GetMasterCodeName("005930")  # 종목명 얻기: 삼성전자
-# print(name)
+name = kiwoom.GetMasterCodeName("005930")  # 종목명 얻기: 삼성전자
+print(name)
+print(type(name))
 
 
 # # 주식계좌
@@ -55,6 +56,8 @@ elif state == 1:
 # kiwoom.SendOrder("시장가매도", "0101", stock_account, 2, "005930", 10, 0, "03", "")
 
 
-df = kiwoom.block_request("opt10001", 종목코드="005930", output="주식기본정보", next=0)
-for lin in df:
-    print(lin)
+# df = kiwoom.block_request("opt10001", 종목코드="005930", output="주식기본정보", next=0)
+
+# df = kiwoom.GetMasterLastPrice("005930")
+# print(int(df))
+# print(type(df))
