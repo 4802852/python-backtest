@@ -1,18 +1,16 @@
 import datetime
 
-# symbol = ["123", "234", "345", "456"]
+symbols = ["123", "234", "345", "456"]
 # dict = {}
-# for i in range(len(symbol)):
-#     dict[symbol[i]] = [0, 0, 0]
+# for i in range(len(symbols)):
+#     dict[symbols[i]] = [0, 0, 0]
 # print(dict)
 # dict["234"][2] = 1
 # print(dict)
-# accum = ";".join(symbol) + ";"
+# accum = ";".join(symbols) + ";"
 # print(accum)
 # print(type(accum))
 
-a = 1
-b = a == (3 or 2)
-print(b)
-
-print(datetime.datetime.now())
+for symbol in symbols:
+    print(type(symbol))
+    print(symbol)

@@ -92,7 +92,11 @@ class MyWindow(QMainWindow):
                 종목코드 = self.GetCommData(trcode, rqname, i, "종목코드")
                 보유수량 = self.GetCommData(trcode, rqname, i, "보유수량")
                 self.bought_list.append(종목코드)
+                self.symbol_dict[종목코드[1:]][3] = True
                 self.symbol_dict[종목코드[1:]][4] = int(보유수량)
+
+        elif rqname == ("매수" or "매도"):
+            pass
 
         else:
             t_now = datetime.datetime.now()
@@ -199,7 +203,9 @@ class MyWindow(QMainWindow):
                         시가 = abs(int(시가))  # +100, -100
                         code_target = int(시가 + (self.symbol_dict[code][1] * 0.4))
                         self.symbol_dict[code][2] = code_target
-                        self.plain_text_edit.appendPlainText(f"{self.symbol_dict[code][0]} 목표가 계산됨: {code_target}")
+                        self.plain_text_edit.appendPlainText(
+                            f"{self.symbol_dict[code][0]} 목표가 계산됨: {code_target}"
+                        )
 
                     # 매수시도
                     # 당일 매수하지 않았고
@@ -240,7 +246,7 @@ class MyWindow(QMainWindow):
                 self.account,
                 2,
                 symbol,
-                self.symbol_list[symbol][4],
+                self.symbol_dict[symbol][4],
                 0,
                 "03",
                 "",
