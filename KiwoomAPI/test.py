@@ -11,6 +11,11 @@ symbols = ["123", "234", "345", "456"]
 # print(accum)
 # print(type(accum))
 
-for symbol in symbols:
-    print(type(symbol))
-    print(symbol)
+# for symbol in symbols:
+#     print(type(symbol))
+#     print(symbol)
+
+t_now = datetime.datetime.now()
+t_now = t_now.replace(hour=20, minute=19)
+today = t_now.strftime("%H%M")
+print(today)
