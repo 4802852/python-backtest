@@ -30,20 +30,12 @@ class MyWindow(QMainWindow):
         self.t_now = datetime.datetime.now()
         self.t_start = self.t_now.replace(hour=9, minute=5, second=0, microsecond=0)
         self.t_sell = self.t_now.replace(hour=15, minute=15, second=0, microsecond=0)
+        self.t_day = datetime.datetime.today().weekday()
 
         self.plain_text_edit = QPlainTextEdit(self)
         self.plain_text_edit.setReadOnly(True)
         self.plain_text_edit.move(10, 10)
         self.plain_text_edit.resize(480, 280)
-
-        self.timer = QTimer(self)
-        self.timer.start(3000)
-        self.timer.timeout.connect(self.timeout_run)
-
-        self.timer_ten = QTimer(self)
-        ten_minute = 1000 * 60 * 10
-        self.timer_ten.start(ten_minute)
-        self.timer_ten.timeout.connect(self.timeout_ten)
 
         self.ocx = QAxWidget("KHOPENAPI.KHOpenAPICtrl.1")
         self.ocx.OnEventConnect.connect(self._handler_login)
@@ -54,6 +46,15 @@ class MyWindow(QMainWindow):
         self.login_event_loop = QEventLoop()
         self.CommConnect()  # 로그인이 될 때까지 대기
         self.run(self.symbol_list)
+
+        self.timer = QTimer(self)
+        self.timer.start(3000)
+        self.timer.timeout.connect(self.timeout_run)
+
+        self.timer_ten = QTimer(self)
+        ten_minute = 1000 * 60 * 10
+        self.timer_ten.start(ten_minute)
+        self.timer_ten.timeout.connect(self.timeout_ten)
 
     def CommConnect(self):
         self.ocx.dynamicCall("CommConnect()")
@@ -75,6 +76,9 @@ class MyWindow(QMainWindow):
 
     def timeout_run(self):
         self.t_now = datetime.datetime.now()
+        if self.t_day == (5 or 6):
+            print("오늘은 ", "토요일" if self.t_day == 5 else "일요일", "입니다.")
+            QCoreApplication.instance().quit()
         if self.t_now < self.t_start:
             self.on_trade = 0
             if self.on_market == "3" and self.bought_list:
@@ -103,11 +107,11 @@ class MyWindow(QMainWindow):
             self.plain_text_edit.appendPlainText("로그인 완료")
         else:
             if err_code == -106:  # 사용자가 강제로 키움api 프로그램을 종료하였을 경우
-                self.plain_text_edit.appendPlainText(errors(err_code)[1])
-                sys.exit(0)
-            self.plain_text_edit.appendPlainText("로그인에 실패하였습니다.")
-            self.plain_text_edit.appendPlainText("에러 내용 :", errors(err_code)[1])
-            sys.exit(0)
+                print("에러 내용 :", errors(err_code)[1])
+                QCoreApplication.instance().quit()
+            print("로그인에 실패하였습니다.")
+            print("에러 내용 :", errors(err_code)[1])
+            QCoreApplication.instance().quit()
         self.login_event_loop.exit()
 
     def _handler_tr_data(self, screen_no, rqname, trcode, record, next):
@@ -202,8 +206,8 @@ class MyWindow(QMainWindow):
         if real_type == "장시작시간":
             장운영구분 = self.GetCommRealData(code, 215)
             if 장운영구분 == ("2" or "4"):
-                print("메인 윈도우 종료")
                 QCoreApplication.instance().quit()
+                print("장이 종료되어 프로그램 종료")
             self.on_market = 장운영구분
 
         elif real_type == "주식체결":
