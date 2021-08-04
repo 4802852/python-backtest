@@ -24,7 +24,7 @@ class MyWindow(QMainWindow):
 
         self.amount = None
         self.account = None
-        self.on_market = None
+        self.on_market = None  # "0": 장 시작 전, "3": 장 중, "2": 장후 동시호가, "4": 장 마감
         self.on_trade = 0  # 0: 09:05 전, 1: 09:05~15:15, 2: 15:15 이후
 
         self.t_now = datetime.datetime.now()
@@ -272,8 +272,10 @@ class MyWindow(QMainWindow):
                 "03",
                 "",
             )
-        self.request_opw00001()
+            self.symbol_dict[symbol][3] = False
+            self.symbol_dict[symbol][4] = 0
         self.bought_list = []
+        self.request_opw00001()
 
     def subscribe_stock_conclusion(self, screen_no, symbol):
         self.SetRealReg(screen_no, symbol, "20", 1)
