@@ -1,5 +1,8 @@
 import requests
 import json
+import os
+
+path = os.path.dirname(os.path.abspath(__file__))
 
 
 def post_message(token, channel, text):
@@ -15,7 +18,7 @@ def post_message(token, channel, text):
 
 
 def to_slack(text):
-    secret_file = 'python-stockMarket/KiwoomAPI/secrets.json'
+    secret_file = path + "\secrets.json"
     with open(secret_file) as f:
         secrets = json.loads(f.read())
     myToken = secrets["Token"]
@@ -23,4 +26,4 @@ def to_slack(text):
     post_message(myToken, channel, text)
 
 
-to_slack("hello!")
+# to_slack("hello! everybody")

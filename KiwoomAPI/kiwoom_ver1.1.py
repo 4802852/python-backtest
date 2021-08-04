@@ -6,6 +6,7 @@ from PyQt5.QtCore import *
 import datetime
 import time
 from config.errCode import *
+from slack.slack import *
 
 
 class MyWindow(QMainWindow):
@@ -52,7 +53,7 @@ class MyWindow(QMainWindow):
         self.timer.timeout.connect(self.timeout_run)
 
         self.timer_ten = QTimer(self)
-        ten_minute = 1000 * 60 * 10
+        ten_minute = 1000 * 60 * 10 * 3
         self.timer_ten.start(ten_minute)
         self.timer_ten.timeout.connect(self.timeout_ten)
 
@@ -66,12 +67,15 @@ class MyWindow(QMainWindow):
         self.plain_text_edit.appendPlainText(f"현재 계좌번호: {self.account}")
 
         self.subscribe_market_time("1")
+
+        self.request_opw00004()  # 계좌 평가 현황 조회
+        self.request_opt10075()  # 미체결 조회
+
         for i, symbol in enumerate(self.symbol_list):
             self.subscribe_stock_conclusion(str(i + 1), symbol)
 
         for symbol in symbol_list:
             self.request_opt10081(symbol)  # 종목 별 전일 정보 조회
-        self.request_opw00004()  # 계좌 평가 현황 조회
         self.request_opw00001()  # 예수금 조회
 
     def timeout_run(self):
@@ -90,6 +94,7 @@ class MyWindow(QMainWindow):
                 self.sell_all(self.bought_list)
                 self.plain_text_edit.appendPlainText("금일 매수량 시장가 매도 완료")
         elif self.t_start < self.t_now < self.t_sell:
+            self.request_opw00001()
             self.on_trade = 1
 
     def timeout_ten(self):
@@ -97,6 +102,7 @@ class MyWindow(QMainWindow):
             t_hour = self.t_now.strftime("%H")
             t_minute = self.t_now.strftime("%M")
             self.plain_text_edit.appendPlainText(f"{t_hour}시 {t_minute}분 주식 체결 감시 중")
+            to_slack(f"{t_hour}시 {t_minute}분 주식 체결 감시 중")  # slack 감시중 확인
 
     def GetLoginInfo(self, tag):
         data = self.ocx.dynamicCall("GetLoginInfo(QString)", tag)
@@ -118,7 +124,12 @@ class MyWindow(QMainWindow):
         if rqname == "예수금조회":
             주문가능금액 = self.GetCommData(trcode, rqname, 0, "주문가능금액")
             주문가능금액 = int(주문가능금액)
-            self.amount = int(주문가능금액 * self.buy_percent)
+            if self.bought_list:
+                self.target_buy_count = (
+                    len(self.symbol_list) if len(self.symbol_list) < 5 else 5
+                ) - len(self.bought_list)
+                self.buy_percent = 1 / self.target_buy_count
+            self.amount = int(주문가능금액 * (self.buy_percent))
             self.plain_text_edit.appendPlainText(f"주문가능금액: {주문가능금액} 1종목당 투자금액: {self.amount}")
 
         elif rqname == "계좌평가현황":
@@ -130,7 +141,21 @@ class MyWindow(QMainWindow):
                 self.symbol_dict[종목코드[1:]][3] = True
                 self.symbol_dict[종목코드[1:]][4] = int(보유수량)
 
-        elif rqname == ("매수" or "매도"):
+        elif rqname == "실시간미체결요청":
+            rows = self.GetRepeatCnt(trcode, rqname)
+            for i in range(rows):
+                종목코드 = self.GetCommData(trcode, rqname, i, "종목코드")
+                종목명 = self.GetCommData(trcode, rqname, i, "종목명")
+                주문수량 = self.GetCommData(trcode, rqname, i, "주문수량")
+                미체결수량 = self.GetCommData(trcode, rqname, i, "미체결수량")
+                self.symbol_dict[종목코드][3] = True
+                self.symbol_dict[종목코드][4] = int(주문수량 - 미체결수량)
+                self.plain_text_edit.appendPlainText(f"{종목명} {미체결수량}/{주문수량} 미체결")
+
+        elif rqname == "매수":
+            pass
+
+        elif rqname == "매도":
             pass
 
         else:
@@ -183,6 +208,13 @@ class MyWindow(QMainWindow):
         self.SetInputValue("상장폐지조회구분", 0)
         self.SetInputValue("비밀번호입력매체구분", "00")
         self.CommRqData("계좌평가현황", "opw00004", 0, "9002")
+
+    def request_opt10075(self):
+        self.SetInputValue("계좌번호", self.account)
+        self.SetInputValue("전체종목구분", "0")
+        self.SetInputValue("매매구분", "2")
+        self.SetInputValue("체결구분", "1")
+        self.CommRqData("실시간미체결요청", "opt10075", 0, "9003")
 
     # 실시간 타입을 위한 메소드
     def SetRealReg(self, screen_no, code_list, fid_list, real_type):
@@ -246,19 +278,21 @@ class MyWindow(QMainWindow):
                         self.symbol_dict[code][3] = True
                         quantity = int(self.amount / 현재가)
                         self.SendOrder("매수", "8000", self.account, 1, code, quantity, 0, "03", "")
-                        self.symbol_dict[code][4] = quantity
                         self.plain_text_edit.appendPlainText(
-                            f"{self.symbol_dict[code][0]} 시장가 매수 진행 수량: {quantity}"
-                        )
-                        self.bought_list.append(code)
-
-                        # 로깅
-                        self.plain_text_edit.appendPlainText(
-                            f"{self.symbol_dict[code][0]} 시간: {체결시간} 목표가: {self.symbol_dict[code][2]} 현재가: {현재가} 보유여부: {self.symbol_dict[code][3]}"
+                            f"{self.symbol_dict[code][0]} 시간: {체결시간} 목표가: {self.symbol_dict[code][2]} 현재가: {현재가} 시장가 매수 진행 수량: {quantity}"
                         )
 
     def _handler_chejan_data(self, gubun, item_cnt, fid_list):
         if "gubun" == "1":  # 잔고통보
+            if self.GetChejanData("946") == "매수":
+                종목코드 = self.GetChejanData("9001")
+                종목명 = self.GetChejanData("302")
+                보유수량 = self.GetChejanData("930")
+                매입단가 = self.GetChejanData("931")
+                self.symbol_dict[종목코드][4] = int(보유수량)
+                if 종목코드 not in self.bought_list:
+                    self.bought_list.append[종목코드]
+                self.plain_text_edit.appendPlainText(f"{종목명} 매입단가: {매입단가} 보유수량: {보유수량}")
             예수금 = self.GetChejanData("951")
             self.amount = int(예수금)
             self.plain_text_edit.appendPlainText(f"주문가능금액 업데이트 됨: {self.amount}")
@@ -279,7 +313,6 @@ class MyWindow(QMainWindow):
             self.symbol_dict[symbol][3] = False
             self.symbol_dict[symbol][4] = 0
         self.bought_list = []
-        self.request_opw00001()
 
     def subscribe_stock_conclusion(self, screen_no, symbol):
         self.SetRealReg(screen_no, symbol, "20", 1)
