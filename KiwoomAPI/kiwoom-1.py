@@ -13,7 +13,7 @@ class MyWindow(QMainWindow):
         super().__init__()
         self.setGeometry(300, 300, 500, 300)
         self.setWindowTitle("변동성 돌파전략")
-        self.symbol_list = ["229200"]
+        self.symbol_list = ["233740", "251340", "122630", "252670"]
         self.symbol_dict = {}  # [name, range, target, hold, quantity]
         self.bought_list = []
         target_buy_count = len(self.symbol_list) if len(self.symbol_list) < 5 else 5
@@ -55,15 +55,13 @@ class MyWindow(QMainWindow):
         self.plain_text_edit.appendPlainText(f"현재 계좌번호: {self.account}")
 
         self.subscribe_market_time("1")
+        for i, symbol in enumerate(self.symbol_list):
+            self.subscribe_stock_conclusion(str(i + 1), symbol)
 
         for symbol in symbol_list:
             self.request_opt10081(symbol)  # 종목 별 전일 정보 조회
         self.request_opw00004()  # 계좌 평가 현황 조회
         self.request_opw00001()  # 예수금 조회
-
-        # 주식체결 (실시간)
-        for i, symbol in enumerate(self.symbol_list):
-            self.subscribe_stock_conclusion(str(i + 1), symbol)
 
     def GetLoginInfo(self, tag):
         data = self.ocx.dynamicCall("GetLoginInfo(QString)", tag)
@@ -174,58 +172,59 @@ class MyWindow(QMainWindow):
             self.on_market = 장운영구분
 
         elif real_type == "주식체결":
-            t_now = datetime.datetime.now()
-            if self.t_sell < t_now:
-                if self.bought_list:
-                    self.sell_all(self.bought_list)
-                    self.plain_text_edit.appendPlainText("전량 매도 중입니다.")
-                self.plain_text_edit.appendPlainText("5분 후 프로그램 종료됩니다.")
-                time.sleep(300)
-                QCoreApplication.instance().quit()
-                print("메인 윈도우 종료")
-            elif self.t_start < t_now:
-                if self.bought_list:
-                    self.sell_all(self.bought_list)
-                time.sleep(60)
-            else:
-                # 현재가
-                현재가 = self.GetCommRealData(code, 10)
-                현재가 = abs(int(현재가))  # +100, -100
-                체결시간 = self.GetCommRealData(code, 20)
+            if len(self.bought_list) < 5:
+                t_now = datetime.datetime.now()
+                if self.t_sell < t_now:
+                    if self.bought_list:
+                        self.sell_all(self.bought_list)
+                        self.plain_text_edit.appendPlainText("전량 매도 중입니다.")
+                    self.plain_text_edit.appendPlainText("5분 후 프로그램 종료됩니다.")
+                    time.sleep(300)
+                    QCoreApplication.instance().quit()
+                    print("메인 윈도우 종료")
+                elif t_now < self.t_start:
+                    if self.bought_list:
+                        self.sell_all(self.bought_list)
+                    time.sleep(60)
+                else:
+                    # 현재가
+                    현재가 = self.GetCommRealData(code, 10)
+                    현재가 = abs(int(현재가))  # +100, -100
+                    체결시간 = self.GetCommRealData(code, 20)
 
-                # 목표가 계산
-                # TR 요청을 통한 전일 range가 계산되었고 아직 당일 목표가가 계산되지 않았다면
-                if self.symbol_dict[code][1] != 0 and self.symbol_dict[code][2] == 0:
-                    시가 = self.GetCommRealData(code, 16)
-                    시가 = abs(int(시가))  # +100, -100
-                    code_target = int(시가 + (self.range * 0.4))
-                    self.symbol_dict[code][2] = code_target
-                    self.plain_text_edit.appendPlainText(f"{code} 목표가 계산됨: {code_target}")
+                    # 목표가 계산
+                    # TR 요청을 통한 전일 range가 계산되었고 아직 당일 목표가가 계산되지 않았다면
+                    if self.symbol_dict[code][1] != 0 and self.symbol_dict[code][2] == 0:
+                        시가 = self.GetCommRealData(code, 16)
+                        시가 = abs(int(시가))  # +100, -100
+                        code_target = int(시가 + (self.symbol_dict[code][1] * 0.4))
+                        self.symbol_dict[code][2] = code_target
+                        self.plain_text_edit.appendPlainText(f"{self.symbol_dict[code][0]} 목표가 계산됨: {code_target}")
 
-                # 매수시도
-                # 당일 매수하지 않았고
-                # TR 요청과 Real을 통한 목표가가 설정되었고
-                # TR 요청을 통해 잔고조회가 되었고
-                # 현재가가 목표가가 이상이면
-                if (
-                    self.symbol_dict[code][3] is False
-                    and self.symbol_dict[code][2]
-                    and self.amount is not None
-                    and 현재가 >= self.symbol_dict[code][2]
-                ):
-                    self.symbol_dict[code][3] = True
-                    quantity = int(self.amount / 현재가)
-                    self.SendOrder("매수", "8000", self.account, 1, code, quantity, 0, "03", "")
-                    self.symbol_dict[code][4] = quantity
-                    self.plain_text_edit.appendPlainText(
-                        f"{self.symbol_dict[code][0]} 시장가 매수 진행 수량: {quantity}"
-                    )
-                    self.bought_list.append(code)
+                    # 매수시도
+                    # 당일 매수하지 않았고
+                    # TR 요청과 Real을 통한 목표가가 설정되었고
+                    # TR 요청을 통해 잔고조회가 되었고
+                    # 현재가가 목표가가 이상이면
+                    if (
+                        self.symbol_dict[code][3] is False
+                        and self.symbol_dict[code][2]
+                        and self.amount is not None
+                        and 현재가 >= self.symbol_dict[code][2]
+                    ):
+                        self.symbol_dict[code][3] = True
+                        quantity = int(self.amount / 현재가)
+                        self.SendOrder("매수", "8000", self.account, 1, code, quantity, 0, "03", "")
+                        self.symbol_dict[code][4] = quantity
+                        self.plain_text_edit.appendPlainText(
+                            f"{self.symbol_dict[code][0]} 시장가 매수 진행 수량: {quantity}"
+                        )
+                        self.bought_list.append(code)
 
-                # 로깅
-                self.plain_text_edit.appendPlainText(
-                    f"{self.symbol_dict[code][0]} 시간: {체결시간} 목표가: {self.symbol_dict[code][2]} 현재가: {현재가} 보유여부: {self.symbol_dict[code][3]}"
-                )
+                        # 로깅
+                        self.plain_text_edit.appendPlainText(
+                            f"{self.symbol_dict[code][0]} 시간: {체결시간} 목표가: {self.symbol_dict[code][2]} 현재가: {현재가} 보유여부: {self.symbol_dict[code][3]}"
+                        )
 
     def _handler_chejan_data(self, gubun, item_cnt, fid_list):
         if "gubun" == "1":  # 잔고통보
