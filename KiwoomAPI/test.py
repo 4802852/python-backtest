@@ -1,6 +1,6 @@
 # import datetime
 
-# symbols = ["123", "234", "345", "456"]
+symbols = ["123", "234", "345", "456"]
 # dict = {}
 # for i in range(len(symbols)):
 #     dict[symbols[i]] = [0, 0, 0]
@@ -20,7 +20,26 @@
 # today = t_now.strftime("%H%M")
 # print(today)
 
-import os
+# import os
 
-path = os.path.dirname(os.path.abspath(__file__))
-print(path)
+# path = os.path.dirname(os.path.abspath(__file__))
+# print(path)
+
+symbols = set(symbols)
+print(symbols)
+symbols.add("123")
+print(symbols)
+symbols.add("567")
+print(symbols)
+symbols.add("345")
+print(symbols)
+
+for i in symbols:
+    print(i)
+print(len(symbols))
+
+empty_set = {1, 2}
+if empty_set:
+    print(1)
+else:
+    print(0)
