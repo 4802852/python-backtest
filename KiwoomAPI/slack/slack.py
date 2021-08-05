@@ -8,8 +8,8 @@ path = os.path.dirname(os.path.abspath(__file__))
 def post_message(token, channel, text):
     response = requests.post(
         "https://slack.com/api/chat.postMessage",
-        headers={"Authorization": "Bearer " + token},
-        data={"channel": channel, "text": text},
+        # headers={"Authorization": "Bearer " + token},
+        data={"token": token, "channel": channel, "text": text},
     )
     if response.status_code == 200:
         print("sucessfully sent!")

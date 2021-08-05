@@ -38,6 +38,17 @@ class MyWindow(QMainWindow):
         self.plain_text_edit.move(10, 10)
         self.plain_text_edit.resize(480, 280)
 
+        self.timer = QTimer(self)
+        self.timer.start(10000)
+        self.timer.setInterval(3000)
+        self.timer.timeout.connect(self.timeout_run)
+
+        self.timer_ten = QTimer(self)
+        ten_minute = 1000 * 60 * 10 * 3
+        self.timer_ten.start(10000)
+        self.timer_ten.setInterval(ten_minute)
+        self.timer_ten.timeout.connect(self.timeout_ten)
+
         self.ocx = QAxWidget("KHOPENAPI.KHOpenAPICtrl.1")
         self.ocx.OnEventConnect.connect(self._handler_login)
         self.ocx.OnReceiveTrData.connect(self._handler_tr_data)
@@ -47,15 +58,6 @@ class MyWindow(QMainWindow):
         self.login_event_loop = QEventLoop()
         self.CommConnect()  # 로그인이 될 때까지 대기
         self.run(self.symbol_list)
-
-        self.timer = QTimer(self)
-        self.timer.start(3000)
-        self.timer.timeout.connect(self.timeout_run)
-
-        self.timer_ten = QTimer(self)
-        ten_minute = 1000 * 60 * 10 * 3
-        self.timer_ten.start(ten_minute)
-        self.timer_ten.timeout.connect(self.timeout_ten)
 
     def CommConnect(self):
         self.ocx.dynamicCall("CommConnect()")
@@ -78,6 +80,9 @@ class MyWindow(QMainWindow):
             self.request_opt10081(symbol)  # 종목 별 전일 정보 조회
         self.request_opw00001()  # 예수금 조회
 
+        today = self.t_now.strftime("%Y%m%d %H:%M")
+        to_slack(today + " 주가 조회 시작")
+
     def timeout_run(self):
         self.t_now = datetime.datetime.now()
         if self.t_day == (5 or 6):
@@ -85,20 +90,19 @@ class MyWindow(QMainWindow):
             QCoreApplication.instance().quit()
         if self.t_now < self.t_start:
             self.on_trade = 0
-            if self.on_market == "3" and self.bought_list:
+            if self.bought_list:
                 self.sell_all(self.bought_list)
                 self.plain_text_edit.appendPlainText("전일 보유량 시장가 매도 완료")
         elif self.t_sell < self.t_now:
             self.on_trade = 2
-            if self.on_market == "3" and self.bought_list:
+            if self.bought_list:
                 self.sell_all(self.bought_list)
                 self.plain_text_edit.appendPlainText("금일 매수량 시장가 매도 완료")
         elif self.t_start < self.t_now < self.t_sell:
-            self.request_opw00001()
             self.on_trade = 1
 
     def timeout_ten(self):
-        if self.on_market == "3":
+        if self.on_trade == 1:
             t_hour = self.t_now.strftime("%H")
             t_minute = self.t_now.strftime("%M")
             self.plain_text_edit.appendPlainText(f"{t_hour}시 {t_minute}분 주식 체결 감시 중")
@@ -135,11 +139,11 @@ class MyWindow(QMainWindow):
         elif rqname == "계좌평가현황":
             rows = self.GetRepeatCnt(trcode, rqname)
             for i in range(rows):
-                종목코드 = self.GetCommData(trcode, rqname, i, "종목코드")
+                종목코드 = self.GetCommData(trcode, rqname, i, "종목코드")[1:]
                 보유수량 = self.GetCommData(trcode, rqname, i, "보유수량")
                 self.bought_list.append(종목코드)
-                self.symbol_dict[종목코드[1:]][3] = True
-                self.symbol_dict[종목코드[1:]][4] = int(보유수량)
+                self.symbol_dict[종목코드][3] = True
+                self.symbol_dict[종목코드][4] = int(보유수량)
 
         elif rqname == "실시간미체결요청":
             rows = self.GetRepeatCnt(trcode, rqname)
@@ -278,26 +282,32 @@ class MyWindow(QMainWindow):
                         self.symbol_dict[code][3] = True
                         quantity = int(self.amount / 현재가)
                         self.SendOrder("매수", "8000", self.account, 1, code, quantity, 0, "03", "")
-                        self.plain_text_edit.appendPlainText(
-                            f"{self.symbol_dict[code][0]} 시간: {체결시간} 목표가: {self.symbol_dict[code][2]} 현재가: {현재가} 시장가 매수 진행 수량: {quantity}"
-                        )
+                        # self.SendOrder("매수", "8000", self.account, 1, code, 1, 0, "03", "")
+                        info = f"{self.symbol_dict[code][0]} 시간: {체결시간} 목표가: {self.symbol_dict[code][2]} 현재가: {현재가} 시장가 매수 진행 수량: {quantity}"
+                        self.plain_text_edit.appendPlainText(info)
+                        to_slack(info)
 
     def _handler_chejan_data(self, gubun, item_cnt, fid_list):
-        if "gubun" == "1":  # 잔고통보
-            if self.GetChejanData("946") == "매수":
-                종목코드 = self.GetChejanData("9001")
-                종목명 = self.GetChejanData("302")
+        if gubun == "1":  # 잔고통보'
+            매수매도구분 = self.GetChejanData("946")
+            if 매수매도구분 == "2":  # 매수 잔고 변동
+                종목코드 = self.GetChejanData("9001")[1:]
+                종목명 = self.GetChejanData("302").strip()
                 보유수량 = self.GetChejanData("930")
                 매입단가 = self.GetChejanData("931")
                 self.symbol_dict[종목코드][4] = int(보유수량)
                 if 종목코드 not in self.bought_list:
-                    self.bought_list.append[종목코드]
+                    self.bought_list.append(종목코드)
                 self.plain_text_edit.appendPlainText(f"{종목명} 매입단가: {매입단가} 보유수량: {보유수량}")
-            예수금 = self.GetChejanData("951")
-            self.amount = int(예수금)
-            self.plain_text_edit.appendPlainText(f"주문가능금액 업데이트 됨: {self.amount}")
+            elif 매수매도구분 == "1":  # 매도 잔고 변동
+                pass
+            # 예수금 = self.GetChejanData("951")
+            # self.amount = int(예수금)
+            # self.plain_text_edit.appendPlainText(f"주문가능금액 업데이트 됨: {self.amount}")
 
     def sell_all(self, bought_list):
+        today = self.t_now.strftime("%Y%m%d %H:%M")
+        to_slack(today + " 전량 매도 진행")
         for symbol in bought_list:
             self.SendOrder(
                 "매도",

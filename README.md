@@ -8,6 +8,8 @@ Coding Study for Stock Trading
 
 ### Kiwoom API 자동매매 프로그램
 
+키움 OpenAPI 구동을 위한 32bit 환경 필요
+
 ver1.0
 
 1. 주어진 종목 코드들 전일 변동폭 정보 획득
