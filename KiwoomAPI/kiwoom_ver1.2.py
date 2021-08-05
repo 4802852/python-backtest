@@ -80,8 +80,12 @@ class MyWindow(QMainWindow):
             self.request_opt10081(symbol)  # 종목 별 전일 정보 조회
         self.request_opw00001()  # 예수금 조회
 
-        today = self.t_now.strftime("%Y%m%d %H:%M")
+        today = self.get_today()
         to_slack(today + " 주가 조회 시작")
+
+    def get_today(self):
+        today = self.t_now.strftime("%Y%m%d %H:%M")
+        return today
 
     def timeout_run(self):
         self.t_now = datetime.datetime.now()
@@ -103,10 +107,10 @@ class MyWindow(QMainWindow):
 
     def timeout_ten(self):
         if self.on_trade == 1:
-            t_hour = self.t_now.strftime("%H")
-            t_minute = self.t_now.strftime("%M")
-            self.plain_text_edit.appendPlainText(f"{t_hour}시 {t_minute}분 주식 체결 감시 중")
-            to_slack(f"{t_hour}시 {t_minute}분 주식 체결 감시 중")  # slack 감시중 확인
+            today = self.get_today()
+            info = f"{today} 주식 현재가 감시중"
+            self.plain_text_edit.appendPlainText(info)
+            to_slack(info)  # slack 감시중 확인
 
     def GetLoginInfo(self, tag):
         data = self.ocx.dynamicCall("GetLoginInfo(QString)", tag)
@@ -243,7 +247,7 @@ class MyWindow(QMainWindow):
             장운영구분 = self.GetCommRealData(code, 215)
             if 장운영구분 == ("2" or "4"):
                 QCoreApplication.instance().quit()
-                print("장이 종료되어 프로그램 종료")
+                print("장 종료 - 프로그램 종료")
             self.on_market = 장운영구분
 
         elif real_type == "주식체결":
@@ -306,7 +310,7 @@ class MyWindow(QMainWindow):
                 pass
 
     def sell_all(self, bought_list):
-        today = self.t_now.strftime("%Y%m%d %H시%M분")
+        today = self.get_today()
         to_slack(today + " 전량 매도 진행")
         for symbol in bought_list:
             self.SendOrder(
