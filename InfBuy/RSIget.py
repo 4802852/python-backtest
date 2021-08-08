@@ -5,7 +5,7 @@ import numpy as np
 
 
 def get_fundamentals(symbol):
-    print ('Getting data for ' + symbol + '...\n')
+    print ('Getting data for ' + symbol)
 
     url = ("http://finviz.com/quote.ashx?t=" + symbol.lower())
     req = Request(url, headers={'User-Agent': 'Mozilla/5.0'})
