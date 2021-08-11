@@ -1,6 +1,6 @@
 # import datetime
 
-symbols = ["123", "234", "345", "456"]
+symbols = {"123", "234", "345", "456"}
 # dict = {}
 # for i in range(len(symbols)):
 #     dict[symbols[i]] = [0, 0, 0]
@@ -25,7 +25,7 @@ symbols = ["123", "234", "345", "456"]
 # path = os.path.dirname(os.path.abspath(__file__))
 # print(path)
 
-symbols = set(symbols)
+# symbols = set(symbols)
 print(symbols)
 symbols.add("123")
 print(symbols)
