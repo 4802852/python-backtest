@@ -15,7 +15,7 @@ class MyWindow(QMainWindow):
         self.setWindowTitle("변동성 돌파전략")
         self.symbol_list = ["233740", "251340", "122630", "252670"]
         self.symbol_dict = {}  # [name, range, target, hold, quantity, target_quantity]
-        self.bought_list = {}
+        self.bought_list = set([])
         self.target_buy_count = len(self.symbol_list) if len(self.symbol_list) < 5 else 5
         self.buy_percent = 1 / self.target_buy_count
 
@@ -148,7 +148,7 @@ class MyWindow(QMainWindow):
                 종목코드 = self.GetCommData(trcode, rqname, i, "종목코드")[1:]
                 보유수량 = self.GetCommData(trcode, rqname, i, "보유수량")
                 self.bought_list.add(종목코드)
-                self.sadddict[종목코드][3] = True
+                self.symbol_dict[종목코드][3] = True
                 self.symbol_dict[종목코드][4] = int(보유수량)
 
         elif rqname == "실시간미체결요청":
@@ -328,7 +328,7 @@ class MyWindow(QMainWindow):
             )
             self.symbol_dict[symbol][3] = False
             self.symbol_dict[symbol][4] = 0
-        self.bought_list = {}
+        self.bought_list = set([])
         self.request_opw00001()
 
     def subscribe_stock_conclusion(self, screen_no, symbol):
