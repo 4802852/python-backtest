@@ -106,7 +106,7 @@ class MyWindow(QMainWindow):
 
     def timeout_run_time(self):
         self.t_now = datetime.datetime.now()
-        if self.t_day == (5 or 6):
+        if self.t_day == 5 or self.t_day == 6:
             print("오늘은 ", "토요일" if self.t_day == 5 else "일요일", "입니다.")
             QCoreApplication.instance().quit()
         if self.t_9 < self.t_now < self.t_start:
